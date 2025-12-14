@@ -134,6 +134,7 @@ class LumaScraper:
             'event_name': '',
             'date_time': '',
             'location': '',
+            'event_details': '',
             'organizer_name': '',
             'organizer_contact': '',
             'host_email': '',
@@ -308,7 +309,10 @@ class LumaScraper:
                         break
             
             # Enhanced organizer/host information extraction
-            organizer_info = self._extract_organizer_info(soup)
+            event_data['event_details'] = self._extract_event_details(soup, page_text)
+            
+            # Enhanced organizer/host information extraction
+            organizer_info = self._extract_organizer_info(soup, page_text)
             event_data.update(organizer_info)
             
             # Clean up empty values
@@ -322,12 +326,76 @@ class LumaScraper:
             logger.error(f"Error extracting data from {url}: {e}")
             return None
     
-    def _extract_organizer_info(self, soup: BeautifulSoup) -> Dict[str, str]:
+    def _extract_event_details(self, soup: BeautifulSoup, page_text: str) -> str:
+        """
+        Extract descriptive event details/agenda text.
+        
+        Args:
+            soup (BeautifulSoup): Parsed HTML content
+            page_text (str): Full page text for fallback parsing
+            
+        Returns:
+            str: Cleaned event details or 'N/A'
+        """
+        detail_candidates = []
+        
+        # Direct selectors that often hold the description
+        detail_selectors = [
+            '[data-testid="event-description"]',
+            '[data-testid="event-details"]',
+            'section[data-testid*="description"]',
+            'div[data-testid*="description"]',
+            'section[class*="description"]',
+            'div[class*="description"]',
+            'section[class*="about"]',
+            'div[class*="about"]',
+            'article'
+        ]
+        
+        for selector in detail_selectors:
+            for elem in soup.select(selector):
+                text = elem.get_text(" ", strip=True)
+                cleaned = self._clean_event_details(text)
+                if cleaned and cleaned != 'N/A':
+                    detail_candidates.append(cleaned)
+        
+        # Look for headings like "About Event" and collect following text
+        heading_pattern = re.compile(r'(about( the)? event|about|event details|agenda|what to expect)', re.IGNORECASE)
+        for heading in soup.find_all(['h1', 'h2', 'h3', 'h4', 'p', 'span'], string=heading_pattern):
+            section_texts = []
+            for sibling in heading.next_siblings:
+                if getattr(sibling, "name", None) in ['h1', 'h2', 'h3', 'h4']:
+                    break
+                if hasattr(sibling, "get_text"):
+                    sibling_text = sibling.get_text(" ", strip=True)
+                    if sibling_text:
+                        section_texts.append(sibling_text)
+                if len(section_texts) >= 5:
+                    break
+            combined = ' '.join(section_texts).strip()
+            cleaned = self._clean_event_details(combined)
+            if cleaned and cleaned != 'N/A':
+                detail_candidates.append(cleaned)
+        
+        # Fallback to top paragraphs if nothing matched
+        if not detail_candidates:
+            paragraphs = soup.find_all('p')
+            combined = ' '.join(p.get_text(" ", strip=True) for p in paragraphs[:3])
+            cleaned = self._clean_event_details(combined)
+            if cleaned and cleaned != 'N/A':
+                detail_candidates.append(cleaned)
+        
+        if detail_candidates:
+            return detail_candidates[0]
+        return 'N/A'
+    
+    def _extract_organizer_info(self, soup: BeautifulSoup, page_text: str) -> Dict[str, str]:
         """
         Extract comprehensive organizer/host information
         
         Args:
             soup (BeautifulSoup): Parsed HTML content
+            page_text (str): Full page text for regex-based extraction
             
         Returns:
             Dict[str, str]: Organizer information
@@ -338,6 +406,8 @@ class LumaScraper:
             'host_email': '',
             'host_social_media': ''
         }
+        
+        text_content = page_text or soup.get_text()
         
         # Extract organizer name using multiple approaches
         organizer_selectors = [
@@ -513,6 +583,30 @@ class LumaScraper:
                 organizer_info['host_social_media'] = ', '.join(unique_social[:5])
         
         return organizer_info
+    
+    def _clean_event_details(self, details: str) -> str:
+        """
+        Normalize event description/details text.
+        
+        Args:
+            details (str): Raw details text
+            
+        Returns:
+            str: Cleaned details text or 'N/A'
+        """
+        if not details:
+            return 'N/A'
+        
+        cleaned = re.sub(r'\bAbout\s+Event\b[:\-]?', ' ', details, flags=re.IGNORECASE)
+        cleaned = re.sub(r'\s+', ' ', cleaned).strip()
+        
+        # Ignore very short or overly long snippets
+        if len(cleaned) < 20:
+            return 'N/A'
+        if len(cleaned) > 1200:
+            cleaned = cleaned[:1200].rstrip()
+        
+        return cleaned
     
     def _clean_location(self, location: str) -> str:
         """

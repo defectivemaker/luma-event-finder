@@ -112,6 +112,7 @@ python luma_scraper.py --headless false
   "organizer_contact": "https://lu.ma/u/ethindia",
   "host_email": "contact@ethindia.org",
   "host_social_media": "twitter.com/ethindia, linkedin.com/company/ethindia",
+  "event_details": "Full-day hackathon with mentorship, co-working, and demo time.",
   "event_url": "https://lu.ma/ethhackbangalore"
 }
 ```
@@ -121,6 +122,7 @@ The CSV file contains the same fields as the JSON output, with headers:
 - `event_name`
 - `date_time`
 - `location`
+- `event_details`
 - `organizer_name`
 - `organizer_contact`
 - `host_email`

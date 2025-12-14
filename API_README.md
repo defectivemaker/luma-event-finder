@@ -234,6 +234,7 @@ Each event contains the following fields:
 {
   "event_name": "Event Name",
   "date_time": "Event Date and Time",
+  "event_details": "Long-form description / agenda",
   "location": "Event Location",
   "organizer_name": "Organizer Name",
   "organizer_contact": "Organizer Profile URL",

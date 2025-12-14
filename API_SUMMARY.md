@@ -169,6 +169,7 @@ Each scraped event contains:
 {
   "event_name": "Event Name",
   "date_time": "Event Date and Time",
+  "event_details": "Long-form description / about section",
   "location": "Event Location",
   "organizer_name": "Organizer Name",
   "organizer_contact": "Organizer Profile URL",
